@@ -1,0 +1,87 @@
+cl-active-variables
+-------------------
+
+cl-active-variables is an extension to Common Lisp that allows one to
+define a variable which has callbacks when they are read or written.
+This is accomplished through the use of a macro character, in this
+case $ but it is easily changed, prefixing the variable name when you
+want it to be active when read or written.  This feature has been
+lifted from ksh93 mostly because I thought it would be an interesting
+experiment to see if this could be added to Common Lisp.
+
+This module defines defactive, which can be used to define active
+variables.  defactive takes the keyword parameters :write-handler
+and/or :read-handler which take functions as described in the next
+paragraph.  You can change the handlers anytime with setactive using
+the same keyword parameters.
+
+Handlers are standard lisp functions. :read-handler's take a single
+parameter which is the current value of the active variable.
+:write-handlers's take 2 parameters, first the old-value and then the
+new-value. The return value of :read-handler is returned as the value
+of the variable.  The return value of :write-handler is what the
+variable is finally set to.
+
+Here is an example of defactive, which defines read and write handlers
+to print some values when the variable is read or written to:
+
+CL-USER> (load "active-variables.lisp")
+T
+CL-uSER> (in-package :active-variables)
+#<PACKAGE "ACTIVE-VARIABLES">
+CL-USER> (defactive x 0
+  :write-handler (lambda (old-val new-val)
+		   (format t "old: ~A  new: ~A" old-val new-val)
+		   new-val)
+  :read-handler (lambda (val)
+		  (format t "value: ~A" val)
+		  val))
+
+0
+CL-USER> $x ; get value and call :read-handler
+value: 0
+0
+CL-USER> (setf $x 100) ; set value calling :write-handler
+old: 0  new: 100
+100
+CL-USER> $x ; get value and call :read-handler
+value: 100
+100
+CL-USER> x ; just get variable without calling :read-handler
+100
+CL-USER> (setf x 200) ; set value without calling :write-handler
+200
+CL-USER> $x : get value and call :read-handler
+value: 200
+200
+
+Here is how to set new handlers:
+
+(setactive x :read-handler (lambda (val)
+			     (format t "~A !!! ~A"
+				     val)))
+(setactive x :write-handler (lambda (old-val new-val)
+			      (format t "~A !!! ~A" old-val new-val)
+			      new-val))
+
+And finally, here is the definition of d6, an active variable which
+acts as a 6 sided die:
+
+(defactive d6 (1+ (random 6))
+ :read-handler (lambda (val)
+		 (let ((old val))
+		   (setf d6 (1+ (random 6)))
+		   old)))
+
+Some care has been taken so that variables with $'s in their names are
+not affected by this module by having a list of current active
+variables.  The $ macro character will only take effect when it is
+placed at the beginning of a symbol so other variables with $'s in
+their names should not be effected.
+
+I hope you find this a useful and interesting experiment.
+
+--
+Burton Samograd
+burton.samograd@gmail.com
+2012
